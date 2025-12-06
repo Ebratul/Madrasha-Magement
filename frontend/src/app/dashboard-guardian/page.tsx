@@ -1,9 +1,12 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   User, Bell, BookOpen, Calendar, TrendingUp, Shield, LogOut, Menu, X, 
   Home, Star, Award, Clock, Heart, Users, FileText, Phone
 } from 'lucide-react';
+import api from '@/lib/api';
+import { AxiosError } from 'axios';
+import { toast } from 'react-hot-toast';
 
 function MadrasaGuardianDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
@@ -15,6 +18,100 @@ function MadrasaGuardianDashboard() {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Get time difference in Bengali
+  const getTimeDifference = useCallback((dateString: string): string => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+
+    if (diffInMinutes < 1) return 'এইমাত্র';
+    if (diffInMinutes < 60) return `${diffInMinutes} মিনিট আগে`;
+    if (diffInHours < 24) return `${diffInHours} ঘন্টা আগে`;
+    if (diffInDays < 7) return `${diffInDays} দিন আগে`;
+    
+    const diffInWeeks = Math.floor(diffInDays / 7);
+    if (diffInWeeks < 4) return `${diffInWeeks} সপ্তাহ আগে`;
+    
+    const diffInMonths = Math.floor(diffInDays / 30);
+    return `${diffInMonths} মাস আগে`;
+  }, []);
+
+  // Map backend notice type to frontend notification type
+  const mapNoticeType = (type: string, title: string, content: string): { type: string; priority: string } => {
+    const lowerTitle = title.toLowerCase();
+    const lowerContent = content.toLowerCase();
+    
+    // Check for exam-related keywords
+    if (lowerTitle.includes('পরীক্ষা') || lowerContent.includes('পরীক্ষা') || 
+        lowerTitle.includes('exam') || lowerContent.includes('exam')) {
+      return { type: 'exam', priority: 'high' };
+    }
+    
+    // Check for meeting-related keywords
+    if (lowerTitle.includes('সভা') || lowerContent.includes('সভা') ||
+        lowerTitle.includes('meeting') || lowerContent.includes('meeting') ||
+        lowerTitle.includes('সমাবেশ')) {
+      return { type: 'meeting', priority: 'medium' };
+    }
+    
+    // Check for achievement-related keywords
+    if (lowerTitle.includes('অর্জন') || lowerContent.includes('অর্জন') ||
+        lowerTitle.includes('achievement') || lowerContent.includes('achievement') ||
+        lowerTitle.includes('সাফল্য') || lowerContent.includes('সাফল্য')) {
+      return { type: 'achievement', priority: 'medium' };
+    }
+    
+    // Default to announcement
+    return { 
+      type: 'announcement', 
+      priority: type === 'warning' ? 'high' : type === 'success' ? 'medium' : 'low' 
+    };
+  };
+
+  // Fetch notifications from backend
+  const fetchNotifications = useCallback(async () => {
+    try {
+      setNotificationsLoading(true);
+      setNotificationsError(null);
+      
+      const response = await api.get('/notices');
+      
+      if (response.data.success && response.data.data) {
+        const mappedNotifications = response.data.data.map((notice: any) => {
+          const { type, priority } = mapNoticeType(notice.type || 'info', notice.title, notice.content);
+          
+          return {
+            id: notice._id,
+            message: notice.title || notice.content, // Title or content as fallback
+            time: getTimeDifference(notice.createdAt),
+            type,
+            priority,
+            content: notice.content, // Full content
+            title: notice.title // Store title separately
+          };
+        });
+        
+        setNotifications(mappedNotifications);
+      }
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      const message = axiosError.response?.data?.message || 'বিজ্ঞপ্তি লোড করতে ব্যর্থ হয়েছে';
+      setNotificationsError(message);
+      console.error('Error fetching notifications:', error);
+      // Don't show toast for guardian dashboard, just log the error
+    } finally {
+      setNotificationsLoading(false);
+    }
+  }, [getTimeDifference]);
+
+  // Fetch notifications on component mount
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
 
   const handleLogoutClick = () => {
     setShowLogoutModal(true);
@@ -47,13 +144,18 @@ function MadrasaGuardianDashboard() {
     photo: "/api/placeholder/100/100"
   };
 
-  const notifications = [
-    { id: 1, message: "আগামীকাল থেকে পরীক্ষা শুরু", time: "৫ মিনিট আগে আগে", type: "exam", priority: "high" },
-    { id: 2, message: "আগামীকাল সূরা আল-বাকারাহ তিলাওত পরীক্ষা", time: "২ ঘন্টা আগে", type: "exam", priority: "high" },
-    { id: 3, message: "জুমার নামাজের পর অভিভাবক সভা", time: "১ দিন আগে", type: "meeting", priority: "medium" },
-    { id: 4, message: "রমজান মাসের বিশেষ ক্লাস রুটিন প্রকাশিত", time: "২ দিন আগে", type: "announcement", priority: "low" },
-    { id: 5, message: "আপনার সন্তানের তাজবীদ উন্নতি অসাধারণ", time: "৩ দিন আগে", type: "achievement", priority: "medium" }
-  ];
+  // Notifications state
+  const [notifications, setNotifications] = useState<Array<{
+    id: string;
+    message: string;
+    time: string;
+    type: string;
+    priority: string;
+    content?: string;
+    title?: string;
+  }>>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(true);
+  const [notificationsError, setNotificationsError] = useState<string | null>(null);
 
   const islamicSubjects = [
     { subject: "কুরআন তিলাওত", marks: 95, total: 100, grade: "ممتاز", arabicGrade: "Mumtaz" },
@@ -189,8 +291,12 @@ function MadrasaGuardianDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-orange-100">নতুন বিজ্ঞপ্তি</p>
-              <p className="text-3xl font-bold">{notifications.length}</p>
-              <p className="text-sm text-orange-200">গুরুত্বপূর্ণ: ২টি</p>
+              <p className="text-3xl font-bold">
+                {notificationsLoading ? '...' : notifications.length}
+              </p>
+              <p className="text-sm text-orange-200">
+                গুরুত্বপূর্ণ: {notifications.filter(n => n.priority === 'high').length}টি
+              </p>
             </div>
             <Bell className="w-8 h-8 text-orange-200" />
           </div>
@@ -416,35 +522,78 @@ function MadrasaGuardianDashboard() {
   const renderNotifications = () => (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h3 className="text-xl font-bold mb-4">মাদরাসা থেকে বিজ্ঞপ্তি</h3>
-        <div className="space-y-4">
-          {notifications.map((notification) => (
-            <div key={notification.id} className={`border-l-4 pl-4 py-2 ${
-              notification.priority === 'high' ? 'border-red-500 bg-red-50' :
-              notification.priority === 'medium' ? 'border-yellow-500 bg-yellow-50' :
-              'border-green-500 bg-green-50'
-            }`}>
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <p className="text-gray-800">{notification.message}</p>
-                  <p className="text-sm text-gray-500 mt-1">{notification.time}</p>
-                </div>
-                <div className="ml-4">
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                    notification.type === 'exam' ? 'bg-red-100 text-red-800' :
-                    notification.type === 'meeting' ? 'bg-yellow-100 text-yellow-800' :
-                    notification.type === 'achievement' ? 'bg-green-100 text-green-800' :
-                    'bg-blue-100 text-blue-800'
-                  }`}>
-                    {notification.type === 'exam' ? 'পরীক্ষা' :
-                     notification.type === 'meeting' ? 'সভা' :
-                     notification.type === 'achievement' ? 'অর্জন' : 'ঘোষণা'}
-                  </span>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-bold">মাদরাসা থেকে বিজ্ঞপ্তি</h3>
+          <button
+            onClick={fetchNotifications}
+            disabled={notificationsLoading}
+            className="text-sm text-green-600 hover:text-green-700 disabled:text-gray-400"
+          >
+            {notificationsLoading ? 'লোড হচ্ছে...' : 'রিফ্রেশ করুন'}
+          </button>
+        </div>
+        
+        {notificationsLoading ? (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto mb-4"></div>
+            <p className="text-gray-600">বিজ্ঞপ্তি লোড হচ্ছে...</p>
+          </div>
+        ) : notificationsError ? (
+          <div className="text-center py-8">
+            <Bell className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+            <p className="text-red-500 mb-4">{notificationsError}</p>
+            <button
+              onClick={fetchNotifications}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              পুনরায় চেষ্টা করুন
+            </button>
+          </div>
+        ) : notifications.length === 0 ? (
+          <div className="text-center py-8">
+            <Bell className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+            <p className="text-gray-600">কোন বিজ্ঞপ্তি নেই</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {notifications.map((notification) => (
+              <div key={notification.id} className={`border-l-4 pl-4 py-3 rounded-r-lg ${
+                notification.priority === 'high' ? 'border-red-500 bg-red-50' :
+                notification.priority === 'medium' ? 'border-yellow-500 bg-yellow-50' :
+                'border-green-500 bg-green-50'
+              }`}>
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-800 mb-2">{notification.message}</h4>
+                    {notification.content && 
+                     notification.content.trim() && 
+                     (!notification.title || notification.content.trim() !== notification.title.trim()) && (
+                      <div className="mt-2 mb-3">
+                        <p className="text-xs font-medium text-gray-600 mb-1">নোটিশের বিষয়বস্তু:</p>
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed bg-white/50 p-2 rounded">
+                          {notification.content}
+                        </p>
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-500 mt-2">{notification.time}</p>
+                  </div>
+                  <div className="ml-4 flex-shrink-0">
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                      notification.type === 'exam' ? 'bg-red-100 text-red-800' :
+                      notification.type === 'meeting' ? 'bg-yellow-100 text-yellow-800' :
+                      notification.type === 'achievement' ? 'bg-green-100 text-green-800' :
+                      'bg-blue-100 text-blue-800'
+                    }`}>
+                      {notification.type === 'exam' ? 'পরীক্ষা' :
+                       notification.type === 'meeting' ? 'সভা' :
+                       notification.type === 'achievement' ? 'অর্জন' : 'ঘোষণা'}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
