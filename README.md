@@ -277,9 +277,6 @@ Ensure MongoDB is running on your system:
 # For local MongoDB
 mongod
 
-# Or use MongoDB Atlas (cloud)
-```
-
 ### Step 6: Seed Database (Optional)
 
 ```bash
@@ -293,8 +290,7 @@ npm run seed
 ```bash
 cd backend
 npm run dev  # Development mode with nodemon
-# OR
-npm start    # Production mode
+
 ```
 
 **Terminal 2 - Frontend:**
@@ -321,7 +317,7 @@ PORT=5000
 # MongoDB Configuration
 MONGODB_URI=mongodb://localhost:27017/madrasa_management
 # OR for MongoDB Atlas:
-# MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/madrasa_management
+# MONGODB_URI=mongodb+srv://sharif12345678@cluster.mongodb.net/madrasa_management
 
 # JWT Configuration
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
@@ -348,12 +344,6 @@ NEXT_PUBLIC_API_URL=http://localhost:5000/api
 ### Base URL
 ```
 http://localhost:5000/api
-```
-
-### Authentication
-Most endpoints require JWT authentication. Include the token in the Authorization header:
-```
-Authorization: Bearer <your-jwt-token>
 ```
 
 ### Endpoints
@@ -512,77 +502,7 @@ Error: listen EADDRINUSE: address already in use :::5000
 ```
 Error: Cannot find module 'express'
 ```
-- **Solution**: Run `npm install` in the backend directory
 
-### Frontend Issues
-
-**API Connection Error**
-```
-Error: Network Error or 404 Not Found
-```
-- **Solution**: 
-  - Check `NEXT_PUBLIC_API_URL` in `.env.local`
-  - Ensure backend server is running
-  - Check CORS configuration in backend
-
-**Build Errors**
-```
-Error: Failed to compile
-```
-- **Solution**: 
-  - Clear `.next` folder: `rm -rf .next`
-  - Rebuild: `npm run build`
-
-**TypeScript Errors**
-- **Solution**: Check `tsconfig.json` configuration and ensure all types are properly defined
-
-### Common Issues
-
-**Authentication Token Expired**
-- **Solution**: Log out and log back in to get a new token
-
-**CORS Errors**
-- **Solution**: Ensure `FRONTEND_URL` in backend `.env` matches your frontend URL
-
-## 🔮 Future Improvements
-
-### Authentication & Authorization
-- [ ] Complete JWT-based authentication for all routes
-- [ ] Role-based access control (RBAC) implementation
-- [ ] Password reset functionality
-- [ ] Email verification
-
-### Features
-- [ ] Student attendance tracking with detailed reports
-- [ ] Fee management system
-- [ ] Library management
-- [ ] Event management and calendar
-- [ ] SMS notification integration
-- [ ] File upload for documents and assignments
-- [ ] Advanced search and filtering
-- [ ] Export data to PDF/Excel
-- [ ] Dashboard analytics and charts
-
-### Technical Improvements
-- [ ] Unit and integration tests
-- [ ] API documentation with Swagger/OpenAPI
-- [ ] Docker containerization
-- [ ] CI/CD pipeline
-- [ ] Performance optimization
-- [ ] Caching implementation (Redis)
-- [ ] Real-time updates with WebSockets
-- [ ] Mobile app (React Native)
-
-### UI/UX Enhancements
-- [ ] Dark mode support
-- [ ] Improved responsive design
-- [ ] Accessibility improvements (WCAG compliance)
-- [ ] Multi-language support (full internationalization)
-- [ ] Advanced data visualization
-
-## 📝 License
-
-This project is proprietary software developed for Darul Hikmah Institute.
 
 ## 👥 Contributing
 
