@@ -8,6 +8,7 @@ import StudentsTab from "@/app/dashboard-principal/StudentsTab";
 import TeachersTab from "@/app/dashboard-principal/TeachersTab";
 import ResultsTab from "@/app/dashboard-principal/ResultsTab";
 import NoticesTab from "@/app/dashboard-principal/NoticesTab";
+import CourseAssignmentTab from "@/app/dashboard-principal/CourseAssignmentTab";
 import NoticeModal from "@/app/dashboard-principal/NoticeModal";
 import { toast } from "react-hot-toast";
 import api from "@/lib/api";
@@ -56,64 +57,15 @@ export default function PrincipalDashboard() {
     }
   ]);
 
-  const [results, setResults] = useState([
-    {
-      id: 1,
-      student: 'আবু বকর সিদ্দিক',
-      className: 'দ্বিতীয় জামাত',
-      exam: 'মাসিক পরীক্ষা',
-      grade: 'A+'
-    },
-    {
-      id: 2,
-      student: 'ফাতিমা বিন্তে মুহাম্মদ',
-      className: 'তৃতীয় জামাত',
-      exam: 'ত্রৈমাসিক পরীক্ষা',
-      grade: 'A'
-    },
-    {
-      id: 3,
-      student: 'মুহাম্মদ আল আমিন',
-      className: 'চতুর্থ জামাত',
-      exam: 'অর্ধবার্ষিক পরীক্ষা',
-      grade: 'B+'
-    },
-    {
-      id: 4,
-      student: 'রহিমা খাতুন',
-      className: 'হিফজ বিভাগ',
-      exam: 'অগ্রগতির পরীক্ষা',
-      grade: 'A'
-    },
-    {
-      id: 5,
-      student: 'তানভীর হাসান',
-      className: 'পঞ্চম জামাত',
-      exam: 'মাসিক পরীক্ষা',
-      grade: 'A+'
-    },
-    {
-      id: 6,
-      student: 'সুমাইয়া আক্তার',
-      className: 'ছয় নম্বর জামাত',
-      exam: 'ত্রৈমাসিক পরীক্ষা',
-      grade: 'A'
-    },
-    {
-      id: 7,
-      student: 'আবদুল করিম',
-      className: 'মুত্তাওয়াসসিতাহ',
-      exam: 'বার্ষিক পরীক্ষা',
-      grade: 'B'
-    },
-    {
-      id: 8,
-      student: 'জয়নাব বিন্তে আবু তালেব',
-      className: 'সানাবিয়া উলা',
-      exam: 'মধ্যবর্তী পরীক্ষা',
-      grade: 'A+'
-    }
-  ]);
+  // Initialize results as empty array - will be populated from database students
+  const [results, setResults] = useState<Array<{
+    id: number;
+    studentId: string;
+    student: string;
+    className: string;
+    exam: string;
+    grade: string;
+  }>>([]);
 
   const [students, setStudents] = useState<StudentRecord[]>([]);
   const [studentsLoading, setStudentsLoading] = useState(true);
@@ -126,7 +78,7 @@ export default function PrincipalDashboard() {
   const [stats, setStats] = useState({
     totalStudents: 0,
     totalTeachers: 0,
-    totalClasses: 0,
+    totalClasses: 7, // Fixed: 7 classes (madani-first, madani-second, hifz-beginner, hifz-intermediate, hifz-advanced, nazera, qaida)
     pendingResults: 0
   });
 
@@ -182,14 +134,17 @@ export default function PrincipalDashboard() {
   useEffect(() => {
     setLoading(true);
     Promise.all([fetchStudents(), fetchTeachers()]).finally(() => {
-      setStats(prev => ({
-        ...prev,
-        totalClasses: 10,
-        pendingResults: 12
-      }));
       setLoading(false);
     });
   }, [fetchStudents, fetchTeachers]);
+
+  // Update pending results count whenever results change
+  useEffect(() => {
+    setStats(prev => ({
+      ...prev,
+      pendingResults: results.length
+    }));
+  }, [results]);
 
   const handleStudentCreated = (student: StudentRecord) => {
     setStudents(prev => [student, ...prev]);
@@ -246,7 +201,7 @@ export default function PrincipalDashboard() {
     }
     switch (activeTab) {
       case 'overview':
-        return <OverviewTab stats={stats} setActiveTab={setActiveTab} />;
+        return <OverviewTab stats={stats} />;
       case 'students':
         return (
           <StudentsTab
@@ -269,18 +224,18 @@ export default function PrincipalDashboard() {
             onDeleteTeacher={handleTeacherDeleted}
           />
         );
+      case 'courses':
+        return <CourseAssignmentTab />;
       case 'results':
         return <ResultsTab results={results} setResults={setResults} />;
       case 'notices':
         return (
           <NoticesTab
-            notices={notices}
-            setNotices={setNotices}
             setShowModal={setShowNoticeModal}
           />
         );
       default:
-        return <OverviewTab stats={stats} setActiveTab={setActiveTab} />;
+        return <OverviewTab stats={stats} />;
     }
   };
 
@@ -341,17 +296,6 @@ export default function PrincipalDashboard() {
       {showNoticeModal && (
         <NoticeModal
           onClose={() => setShowNoticeModal(false)}
-          onSubmit={(title, content) => {
-            const newNotice = {
-              id: Date.now(),
-              title,
-              content,
-              date: new Date(),
-              type: 'info'
-            };
-            setNotices([newNotice, ...notices]);
-            setShowNoticeModal(false);
-          }}
         />
       )}
     </div>
